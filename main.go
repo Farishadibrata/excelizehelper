@@ -14,6 +14,19 @@ type ExcelizeInstance struct {
 	TableSpacing  int
 }
 
+// https://stackoverflow.com/a/71354018
+func getColumnName(col int) string {
+	name := make([]byte, 0, 3) // max 16,384 columns (2022)
+	const aLen = 'Z' - 'A' + 1 // alphabet length
+	for ; col > 0; col /= aLen + 1 {
+		name = append(name, byte('A'+(col-1)%aLen))
+	}
+	for i, j := 0, len(name)-1; i < j; i, j = i+1, j-1 {
+		name[i], name[j] = name[j], name[i]
+	}
+	return string(name)
+}
+
 // To appending Table from previous to avoid overlapping
 func (eInstance *ExcelizeInstance) ReFetchCoords() {
 	rows, err := eInstance.Excelize.Rows(eInstance.SheetName)
@@ -70,26 +83,36 @@ func (coords *Coords) currentCoordsAddCol(n int) {
 	coords.X = coords.X + n
 }
 
+type Outline struct {
+	N     int
+	Level int
+}
 type BaseProps struct {
 	// Registered style id
 	Style int
 	// Merging X / Z based on Current X / Z + MergeX / MergeZ
 	MergeY int
 	MergeX int
-	// current X & y coords
+	// Outlining current row + n
+	OutlineX Outline
 }
 type IColumns struct {
+	// V means values for shorten code
 	BaseProps
-	Value string
+	V string
 }
 
 type IRows struct {
 	BaseProps
-	Columns []IColumns
+	Columns  []IColumns
+	OutlineY Outline
+	Header   bool
 }
 
 type ITable struct {
 	Rows []IRows
+	// Automatically add filter after first row (assuming first row is header)
+	AutoFilter bool
 }
 
 type INewExcelInstance struct {
@@ -115,25 +138,55 @@ func (eInstance *ExcelizeInstance) AppendTable(input *ITable) {
 		Y: eInstance.CurrentCoords.Y,
 	}
 
-	for _, row := range input.Rows {
-		for _, column := range row.Columns {
+	Headerindex := 1
+	// if there are previously added newline in autofilter, skip it
+	for index, row := range input.Rows {
+		isColumnRenderable := true
 
-			currentCoords := tableCoords.currentCoordsToCell()
-			eInstance.Excelize.SetCellValue(eInstance.SheetName, currentCoords, column.Value)
-
-			if column.MergeY != 0 {
-				mergedCell := tableCoords.currentCellPlusN(0, column.MergeY-1)
-				eInstance.Excelize.MergeCell(eInstance.SheetName, currentCoords, mergedCell)
-			}
-
-			if column.MergeX != 0 {
-				mergedCell := tableCoords.currentCellPlusN(column.MergeX-1, 0)
-				eInstance.Excelize.MergeCell(eInstance.SheetName, currentCoords, mergedCell)
-			}
-			tableCoords.currentCoordsAddCol(column.MergeX)
+		if row.Header {
+			Headerindex = index + 1
 		}
+		if isColumnRenderable {
+			for _, column := range row.Columns {
+				currentCoords := tableCoords.currentCoordsToCell()
+				eInstance.Excelize.SetCellValue(eInstance.SheetName, currentCoords, column.V)
+
+				if column.MergeY != 0 {
+					mergedCell := tableCoords.currentCellPlusN(0, column.MergeY-1)
+					eInstance.Excelize.MergeCell(eInstance.SheetName, currentCoords, mergedCell)
+				}
+
+				if column.MergeX != 0 {
+					mergedCell := tableCoords.currentCellPlusN(column.MergeX-1, 0)
+					eInstance.Excelize.MergeCell(eInstance.SheetName, currentCoords, mergedCell)
+				}
+
+				if row.OutlineX.N != 0 && row.OutlineX.Level != 0 {
+					eInstance.Excelize.SetColOutlineLevel(eInstance.SheetName, getColumnName(tableCoords.X+column.OutlineX.N), 1)
+				}
+
+				tableCoords.currentCoordsAddCol(column.MergeX)
+			}
+		}
+
+		if row.OutlineY.N != 0 && row.OutlineY.Level != 0 {
+			eInstance.Excelize.SetRowOutlineLevel(eInstance.SheetName, tableCoords.Y+row.OutlineY.N, 1)
+		}
+
 		tableCoords.setCoordsX(eInstance.CurrentCoords.X)
 		tableCoords.currentCoordsAddRow()
+	}
+	// Always on header index
+	if input.AutoFilter {
+		HeaderLength := len(input.Rows[Headerindex].Columns)
+		rowLength := len(input.Rows)
+		autoFilterIndexRow := tableCoords.Y - rowLength + Headerindex - 1
+
+		startRange, _ := excelize.CoordinatesToCellName(eInstance.CurrentCoords.X, autoFilterIndexRow)
+		endRange, _ := excelize.CoordinatesToCellName(eInstance.CurrentCoords.X+HeaderLength-1, autoFilterIndexRow)
+		rangeAutoFilter := fmt.Sprintf("%s:%s", startRange, endRange)
+
+		eInstance.Excelize.AutoFilter(eInstance.SheetName, rangeAutoFilter, []excelize.AutoFilterOptions{})
 	}
 
 }
@@ -172,29 +225,59 @@ func main() {
 
 	xlsx := NewExcelInstance(&INewExcelInstance{sheetName: "Sheet1"})
 
+	Headers := []IColumns{{V: "Supplier Name"}, {V: "PO Number"}, {V: "Discipline"}}
+
 	MainTable := &ITable{
-		Rows: []IRows{{
-			Columns: []IColumns{{Value: "Properties", BaseProps: BaseProps{
-				MergeX: 3,
-			}}, {Value: "Departement", BaseProps: BaseProps{
-				MergeY: 2,
-			}}},
-		}, {
-			Columns: []IColumns{{Value: "Name"}, {Value: "Task"}, {Value: "Assigned"}},
-		}, {
-			Columns: []IColumns{{Value: "Nora"}, {Value: "Write Docs"}, {Value: "false"}, {Value: "Business Analyst"}},
-		},
+		// AutoFilter: true,
+		Rows: []IRows{
 			{
-				Columns: []IColumns{{Value: "Tyler"}, {Value: "Write Code for FrontEnd"}, {Value: "false"}, {Value: "IT Departement"}},
+				Columns: []IColumns{{V: "Testing Table", BaseProps: BaseProps{MergeX: 3}}},
 			},
 			{
-				Columns: []IColumns{{Value: "Durden"}, {Value: "Write Code for BackEnd"}, {Value: "true"}, {Value: "IT Departement"}},
+				Columns: Headers,
+				Header:  true,
+			},
+			{
+				OutlineY: Outline{N: 3},
+				Columns:  []IColumns{{V: "STEEL WORLD CO., LTD"}, {V: "3220000481"}, {V: ""}},
+			},
+			{
+				Columns: []IColumns{{V: "STEEL WORLD CO., LTD"}, {V: "3220000481"}, {V: "Piping"}},
+			},
+			{
+				Columns: []IColumns{{V: "STEEL WORLD CO., LTD"}, {V: "3220000481"}, {V: "Electrical"}},
+			},
+			{
+				Columns: []IColumns{{V: "STEEL WORLD CO., LTD"}, {V: "3220000481"}, {V: "Mechanical"}},
+			},
+		},
+	}
+
+	SecondTable := &ITable{
+		AutoFilter: true,
+		Rows: []IRows{
+			{
+				Columns: Headers,
+				Header:  true,
+			},
+			{
+				OutlineY: Outline{N: 3},
+				Columns:  []IColumns{{V: "STEEL WORLD CO., LTD"}, {V: "3220000481"}, {V: ""}},
+			},
+			{
+				Columns: []IColumns{{V: "STEEL WORLD CO., LTD"}, {V: "3220000481"}, {V: "Piping"}},
+			},
+			{
+				Columns: []IColumns{{V: "STEEL WORLD CO., LTD"}, {V: "3220000481"}, {V: "Electrical"}},
+			},
+			{
+				Columns: []IColumns{{V: "STEEL WORLD CO., LTD"}, {V: "3220000481"}, {V: "Mechanical"}},
 			},
 		},
 	}
 
 	xlsx.AppendTable(MainTable)
-	xlsx.AppendTable(MainTable)
+	xlsx.AppendTable(SecondTable)
 
 	xlsx.Write()
 }
