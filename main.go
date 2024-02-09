@@ -153,13 +153,13 @@ func (eInstance *ExcelizeInstance) AppendStyle(Styles []IExcelizeStyle) error {
 	return nil
 }
 
-func (eInstance *ExcelizeInstance) Write() error {
+func (eInstance *ExcelizeInstance) Write() (string, error) {
 	fileName := time.Now().Format("20060102150405")
 	if err := eInstance.Excelize.SaveAs(fmt.Sprintf("%s.xlsx", fileName)); err != nil {
 		eInstance.Log("Unable to save XLSX: ", err)
-		return err
+		return "", err
 	}
-	return nil
+	return fileName, nil
 }
 
 func (eInstance *ExcelizeInstance) AppendTable(input *ITable) error {
