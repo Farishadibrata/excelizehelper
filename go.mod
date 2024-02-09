@@ -1,4 +1,4 @@
-module farishadibrata.com/xlsxparser
+module farishadibrata.com/excelizeHelper
 
 go 1.21.5
 
