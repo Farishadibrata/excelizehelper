@@ -1,4 +1,4 @@
-module github.com/Farishadibrata/excelizeHelper
+module github.com/Farishadibrata/excelizehelper
 
 go 1.21.5
 
