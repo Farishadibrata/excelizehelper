@@ -272,7 +272,7 @@ func NewExcelInstance(input *INewExcelInstance) (*ExcelizeInstance, error) {
 	}()
 
 	// Create a new sheet.
-	_, err := f.NewSheet(input.sheetName)
+	_, err := f.NewSheet(input.SheetName)
 
 	if err != nil {
 		fmt.Println("Excelize-Helper: Unable to create sheet: ", err)
@@ -281,7 +281,7 @@ func NewExcelInstance(input *INewExcelInstance) (*ExcelizeInstance, error) {
 
 	instance := &ExcelizeInstance{
 		Excelize:  f,
-		SheetName: input.sheetName,
+		SheetName: input.SheetName,
 		// excel coords start at 1
 		CurrentCoords: &Coords{
 			X: 1,
