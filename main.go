@@ -1,10 +1,9 @@
-package main
+package excelizeHelper
 
 import (
 	"fmt"
 	"time"
 
-	"farishadibrata.com/xlsxparser/styles"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -291,95 +290,4 @@ func NewExcelInstance(input *INewExcelInstance) (*ExcelizeInstance, error) {
 		TableSpacing: 1,
 	}
 	return instance, nil
-}
-
-func main() {
-
-	xlsx, _ := NewExcelInstance(&INewExcelInstance{sheetName: "Sheet1"})
-
-	xlsx.AppendStyle([]IExcelizeStyle{
-		{Name: "CenteringBoldStyle", ExcelizeStyle: styles.CenteringBoldStyle},
-		{Name: "CenteringWidthStyle", ExcelizeStyle: styles.CenteringWidthStyle},
-		{Name: "TableHeaderColumnsStyle", ExcelizeStyle: styles.TableHeaderColumnsStyle},
-		{Name: "TableHeaderIssuePurposeColumnsStyle", ExcelizeStyle: styles.TableHeaderIssuePurposeColumnsStyle},
-		{Name: "TableHeaderLatestStatusColumnsStyle", ExcelizeStyle: styles.TableHeaderLatestStatusColumnsStyle},
-		{Name: "EachMetadataStyle", ExcelizeStyle: styles.EachMetadataStyle},
-	})
-
-	HeaderStyle := BaseProps{
-		Style: "TableHeaderColumnsStyle",
-		Width: 15,
-	}
-	Headers := StringToArrayColumns(HeaderStyle, "Supplier Name", "PO Number", "PO TITLE", "CTR DOC. NO.", "CPY DOC. NO.", "DISTRIBUTION MATRIX", "DOCUMENT TITLE", "DOC TYPE", "PIC DCC VENDOR", "PIC EXPEDITER", "PIC QAQC", "Vendor Plan Date for 1st Submission", "CTR", "CPY", "FINAL ISSUANCE", "REMARKS")
-	HeadersIssuePurpose := StringToArrayColumns(HeaderStyle, "Plan Date", "Vendor Minor Revision", "Vendor Major Revision	Status", "Actual Date", "Vendor Late / On Schedule", "CTR Review Date", "Due Date", "CTR Return Date", "Approval Code", "Return DOC To Vendor", "CTR Late / On Schedule", "TRN TRIPATRA OUT", "Expected Returned To TPEC")
-
-	// HeadersLatestStatus := []IColumns{{V: "Plan Date"}, {V: "Vendor Minor Revision"}, {V: "Vendor Major Revision"}}
-
-	MetadataTable := &ITable{
-		AutoFilter: true,
-		Rows: []IRows{
-			{EmptyRow: true},
-			{
-				Columns: Headers,
-			},
-			{
-				Columns: []IColumns{},
-				Header:  true,
-			},
-			{
-				BaseProps: BaseProps{Style: "EachMetadataStyle"},
-				Columns:   []IColumns{{V: "STEEL WORLD CO., LTD"}, {V: "3220000481"}, {V: ""}},
-			},
-			{
-				OutlineY: Outline{Level: 1},
-				Columns:  []IColumns{{V: "STEEL WORLD CO., LTD"}, {V: "3220000481"}, {V: "Piping"}},
-			},
-			{
-				OutlineY: Outline{Level: 1},
-				Columns:  []IColumns{{V: "STEEL WORLD CO., LTD"}, {V: "3220000481"}, {V: "Electrical"}},
-			},
-			{
-				OutlineY: Outline{Level: 1},
-				Columns:  []IColumns{{V: "STEEL WORLD CO., LTD"}, {V: "3220000481"}, {V: "Mechanical"}},
-			},
-		},
-	}
-
-	IssuePurposeTable := &ITable{
-		// AutoFilter: true,
-		Rows: []IRows{
-			{
-				Columns: []IColumns{{V: "Latest Status", BaseProps: BaseProps{Style: "CenteringBoldStyle", MergeX: len(HeadersIssuePurpose)}}},
-			},
-			{
-				Height:  50,
-				Columns: HeadersIssuePurpose,
-				Header:  true,
-			},
-			{
-				Columns: []IColumns{{V: "STEEL WORLD CO., LTD"}, {V: "3220000481"}, {V: ""}},
-			},
-			{
-				Columns: []IColumns{{V: "STEEL WORLD CO., LTD"}, {V: "3220000481"}, {V: "Piping"}},
-			},
-			{
-				Columns: []IColumns{{V: "STEEL WORLD CO., LTD"}, {V: "3220000481"}, {V: "Electrical"}},
-			},
-			{
-				Columns: []IColumns{{V: "STEEL WORLD CO., LTD"}, {V: "3220000481"}, {V: "Mechanical"}},
-			},
-		},
-	}
-
-	xlsx.AppendTable(MetadataTable)
-	xlsx.AppendTable(IssuePurposeTable)
-	xlsx.AppendTable(IssuePurposeTable)
-	xlsx.Excelize.SetPanes(xlsx.SheetName, &excelize.Panes{
-		Freeze:      true,
-		XSplit:      8,
-		YSplit:      1,
-		TopLeftCell: "I2",
-	})
-
-	xlsx.Write()
 }
