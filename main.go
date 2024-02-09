@@ -107,7 +107,7 @@ type ITable struct {
 }
 
 type INewExcelInstance struct {
-	sheetName string
+	SheetName string
 }
 
 func (eInstance *ExcelizeInstance) Log(message string, errorMsg error) {
