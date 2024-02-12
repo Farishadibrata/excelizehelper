@@ -154,8 +154,8 @@ func (eInstance *ExcelizeInstance) AppendStyle(Styles []IExcelizeStyle) error {
 }
 
 func (eInstance *ExcelizeInstance) Write() (string, error) {
-	fileName := time.Now().Format("20060102150405")
-	if err := eInstance.Excelize.SaveAs(fmt.Sprintf("%s.xlsx", fileName)); err != nil {
+	fileName := fmt.Sprintf("%s.xlsx", time.Now().Format("20060102150405"))
+	if err := eInstance.Excelize.SaveAs(fileName); err != nil {
 		eInstance.Log("Unable to save XLSX: ", err)
 		return "", err
 	}
@@ -164,15 +164,15 @@ func (eInstance *ExcelizeInstance) Write() (string, error) {
 
 func (eInstance *ExcelizeInstance) AppendTable(input *ITable) error {
 	//  add spacing between table
-	if eInstance.CurrentCoords.X > 1 {
-		eInstance.CurrentCoords.X = eInstance.CurrentCoords.X + eInstance.TableSpacing + 1
-	}
+	// if eInstance.CurrentCoords.X > 1 {
+	// 	// eInstance.CurrentCoords.X = eInstance.CurrentCoords.X + eInstance.TableSpacing + 1
+	// }
 
-	errRefetch := eInstance.ReFetchCoords()
-	if errRefetch != nil {
-		eInstance.Log("Unable to save style: ", errRefetch)
-		return errRefetch
-	}
+	// errRefetch := eInstance.ReFetchCoords()
+	// if errRefetch != nil {
+	// 	eInstance.Log("Unable to update Coords: ", errRefetch)
+	// 	return errRefetch
+	// }
 
 	tableCoords := &Coords{
 		X: eInstance.CurrentCoords.X,
@@ -180,6 +180,7 @@ func (eInstance *ExcelizeInstance) AppendTable(input *ITable) error {
 	}
 
 	Headerindex := 1
+	longestCol := 0
 	// if there are previously added newline in autofilter, skip it
 	for index, row := range input.Rows {
 		isColumnRenderable := true
@@ -191,6 +192,9 @@ func (eInstance *ExcelizeInstance) AppendTable(input *ITable) error {
 			Headerindex = index + 1
 		}
 		if isColumnRenderable {
+			if len(row.Columns) > longestCol {
+				longestCol = len(row.Columns)
+			}
 			for _, column := range row.Columns {
 				currentCoords := tableCoords.currentCoordsToCell()
 				eInstance.Excelize.SetCellValue(eInstance.SheetName, currentCoords, column.V)
@@ -249,6 +253,7 @@ func (eInstance *ExcelizeInstance) AppendTable(input *ITable) error {
 
 		eInstance.Excelize.AutoFilter(eInstance.SheetName, rangeAutoFilter, []excelize.AutoFilterOptions{})
 	}
+	eInstance.CurrentCoords.setCoordsX(eInstance.CurrentCoords.X + longestCol + eInstance.TableSpacing)
 	return nil
 }
 
